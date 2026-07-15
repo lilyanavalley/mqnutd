@@ -53,10 +53,16 @@ pub async fn query(cfg: &NutConfig) -> Result<UpsStatus> {
     conn.close().await?;
 
     let status = status_var.value();
-    let charge: f32 = charge_var
-        .value()
-        .parse()
-        .unwrap_or(100.0);
+    let charge: f32 = match charge_var.value().parse() {
+        Ok(v) => v,
+        Err(_) => {
+            tracing::warn!(
+                raw = %charge_var.value(),
+                "Failed to parse battery.charge from NUT — assuming 0% (safe fallback)"
+            );
+            0.0
+        }
+    };
 
     Ok(UpsStatus { status, charge })
 }

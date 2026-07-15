@@ -109,6 +109,9 @@ pub async fn run(config: &Config) -> Result<()> {
     let triggered_clone = Arc::clone(&triggered);
 
     // Track when we last had a successful MQTT connection.
+    // Initialised to the daemon start time so that the reconnect timeout also
+    // triggers when the broker was never reachable in the first place.
+    let daemon_start = Instant::now();
     let last_connected: Arc<Mutex<Option<Instant>>> = Arc::new(Mutex::new(None));
     let last_connected_clone = Arc::clone(&last_connected);
 
@@ -163,29 +166,28 @@ pub async fn run(config: &Config) -> Result<()> {
         tokio::time::sleep(poll).await;
 
         if let Some(timeout) = reconnect_timeout {
-            let disconnected_for = {
+            // Use the last successful connection time, or daemon start if we
+            // have never successfully connected.
+            let elapsed = {
                 let lc = last_connected.lock().unwrap();
                 match *lc {
-                    Some(t) => Some(t.elapsed()),
-                    // Never connected yet — measure from daemon start (worst case).
-                    None => None,
+                    Some(t) => t.elapsed(),
+                    None => daemon_start.elapsed(),
                 }
             };
 
-            if let Some(elapsed) = disconnected_for {
-                if elapsed > timeout {
-                    tracing::warn!(
-                        elapsed_secs = elapsed.as_secs(),
-                        timeout_secs = timeout.as_secs(),
-                        "MQTT broker unreachable beyond timeout — triggering plan"
-                    );
-                    let mut t = triggered.lock().unwrap();
-                    if !*t {
-                        *t = true;
-                        drop(t);
-                        if let Err(e) = executor.execute() {
-                            tracing::error!(error = %e, "Executor failed");
-                        }
+            if elapsed > timeout {
+                tracing::warn!(
+                    elapsed_secs = elapsed.as_secs(),
+                    timeout_secs = timeout.as_secs(),
+                    "MQTT broker unreachable beyond timeout — triggering plan"
+                );
+                let mut t = triggered.lock().unwrap();
+                if !*t {
+                    *t = true;
+                    drop(t);
+                    if let Err(e) = executor.execute() {
+                        tracing::error!(error = %e, "Executor failed");
                     }
                 }
             }
