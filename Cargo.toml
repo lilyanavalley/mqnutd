@@ -3,7 +3,7 @@ name = "mqnutd"
 version = "0.1.0"
 edition = "2021"
 description = "MQTT connector for NUT protocol – lightweight UPS power-outage shutdown daemon"
-license = "MIT"
+license = "AGPL-3-or-later"
 repository = "https://github.com/lilyanavalley/mqnutd"
 
 [[bin]]
