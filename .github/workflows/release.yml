@@ -21,9 +21,19 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path: dist/
 
+      - name: Resolve tag from commit
+        id: tag
+        run: |
+          TAG=$(gh api repos/${{ github.repository }}/git/refs/tags \
+            --jq ".[] | select(.object.sha == \"${{ github.event.workflow_run.head_sha }}\") | .ref | ltrimstr(\"refs/tags/\")" \
+            | head -n1)
+          echo "name=${TAG}" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create draft release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.workflow_run.head_branch }}
+          tag_name: ${{ steps.tag.outputs.name }}
           draft: true
           files: dist/*
