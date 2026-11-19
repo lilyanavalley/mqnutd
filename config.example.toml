@@ -1,0 +1,80 @@
+# mqnutd configuration example
+#
+# Copy to /etc/mqnutd/config.toml and edit as needed.
+# Run with: mqnutd --config /etc/mqnutd/config.toml
+
+# ── Operating mode ────────────────────────────────────────────────────────────
+#
+#  publisher  – reads NUT, publishes UPS status to MQTT; also shuts down this
+#               machine when plan conditions are met (use on the machine directly
+#               attached to the UPS via USB/serial).
+#
+#  subscriber – watches MQTT for UPS updates and shuts down this machine when
+#               conditions are met (use on machines that share the same power
+#               strip but have no direct UPS connection).
+#
+mode = "subscriber"
+
+
+# ── NUT server (required for publisher mode) ──────────────────────────────────
+[nut]
+host = "192.168.1.10"
+port = 3493                  # default NUT port
+ups_name = "myups"           # as configured in /etc/nut/ups.conf
+# username = "monuser"       # optional NUT username
+# password = "secret"        # optional NUT password
+
+
+# ── MQTT broker ───────────────────────────────────────────────────────────────
+[mqtt]
+host = "192.168.1.1"
+port = 1883                  # default MQTT port (use 8883 for TLS)
+client_id = "mqnutd-server1" # unique per broker
+keepalive_secs = 30
+# username = "mqttuser"
+# password = "mqttpass"
+
+
+# ── MQTT topics ───────────────────────────────────────────────────────────────
+#
+# All instances sharing a UPS should use the same topic set so they all receive
+# the same status updates.
+#
+[topics]
+status = "ups/myups/status"  # UPS status string (e.g. "OL", "OB", "LB OB")
+charge = "ups/myups/charge"  # Battery charge percentage (e.g. "45.5")
+lwt    = "ups/myups/lwt"     # Last Will Testament — "offline" on unexpected disconnect
+
+
+# ── Shutdown plan ─────────────────────────────────────────────────────────────
+[plan]
+# Trigger shutdown when battery charge drops below this percentage (while on battery).
+charge_threshold = 20.0
+
+# Also trigger immediately when the UPS status contains any of these tokens.
+# "LB" = low battery (reported by NUT when the battery is critically low).
+trigger_statuses = ["LB"]
+
+
+# ── Shutdown executor ─────────────────────────────────────────────────────────
+#
+# type = "systemd"   – calls `systemctl poweroff`
+# type = "command"   – runs an arbitrary shell command
+#
+[executor]
+type = "systemd"
+
+# Example: custom command
+# [executor]
+# type = "command"
+# command = "shutdown -h +1 'UPS battery low – shutting down'"
+
+
+# ── Daemon settings ───────────────────────────────────────────────────────────
+[daemon]
+# How often (in seconds) to poll NUT (publisher) or check state (subscriber).
+poll_interval_secs = 10
+
+# Subscriber only: trigger the plan if the MQTT broker is unreachable for this
+# many seconds.  Set to 0 to disable.
+mqtt_reconnect_timeout_secs = 60

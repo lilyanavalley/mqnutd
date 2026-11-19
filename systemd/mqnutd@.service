@@ -1,0 +1,26 @@
+# Template unit – allows multiple named instances, each with their own config.
+#
+# Usage:
+#   cp /usr/share/mqnutd/config.example.toml /etc/mqnutd/server1.toml
+#   systemctl enable --now mqnutd@server1
+
+[Unit]
+Description=mqnutd – MQTT/NUT UPS daemon (instance %i)
+Documentation=https://github.com/lilyanavalley/mqnutd
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mqnutd --config /etc/mqnutd/%i.toml
+Restart=on-failure
+RestartSec=10s
+TimeoutStopSec=10s
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/log/mqnutd
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,22 @@
+[Unit]
+Description=mqnutd – MQTT/NUT UPS power-outage shutdown daemon
+Documentation=https://github.com/lilyanavalley/mqnutd
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mqnutd --config /etc/mqnutd/config.toml
+Restart=on-failure
+RestartSec=10s
+# Give the daemon a chance to flush before the system shuts down.
+TimeoutStopSec=10s
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/log/mqnutd
+
+[Install]
+WantedBy=multi-user.target
